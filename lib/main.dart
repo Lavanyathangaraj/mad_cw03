@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-// --- 1. Priority Enum and Data Model ---
-
 enum TaskPriority { Low, Medium, High }
 
 class Task {
@@ -20,7 +18,6 @@ void main() {
   runApp(const TaskManagerApp());
 }
 
-// --- 2. Main App Widget (Stateless) ---
 class TaskManagerApp extends StatelessWidget {
   const TaskManagerApp({super.key});
 
@@ -39,7 +36,6 @@ class TaskManagerApp extends StatelessWidget {
   }
 }
 
-// --- 3. Main Screen (StatefulWidget) ---
 class TaskListScreen extends StatefulWidget {
   const TaskListScreen({super.key});
 
@@ -84,6 +80,17 @@ class _TaskListScreenState extends State<TaskListScreen> {
     });
   }
 
+  int _getPriorityValue(TaskPriority priority) {
+    switch (priority) {
+      case TaskPriority.High:
+        return 0;
+      case TaskPriority.Medium:
+        return 1;
+      case TaskPriority.Low:
+        return 2;
+    }
+  }
+  
   Color _getPriorityColor(TaskPriority priority) {
     switch (priority) {
       case TaskPriority.High:
@@ -105,6 +112,12 @@ class _TaskListScreenState extends State<TaskListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final List<Task> sortedTasks = List.from(_tasks);
+    
+    sortedTasks.sort((a, b) {
+      return _getPriorityValue(a.priority).compareTo(_getPriorityValue(b.priority));
+    });
+    
     return Scaffold(
       backgroundColor: Colors.blue.shade50,
       
@@ -119,9 +132,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: <Widget>[
-            // --- INPUT SECTION: Task Name, Priority Dropdown, and Add Button ---
             
-            // 1. Task Name Input Field (Full Width)
             TextField(
               controller: _taskController,
               decoration: const InputDecoration(
@@ -135,7 +146,6 @@ class _TaskListScreenState extends State<TaskListScreen> {
             ),
             const SizedBox(height: 12),
 
-            // 2. Priority Dropdown and Add Button (In a Row)
             Row(
               children: <Widget>[
                 Expanded(
@@ -169,7 +179,6 @@ class _TaskListScreenState extends State<TaskListScreen> {
                 ),
                 const SizedBox(width: 8),
 
-                // 3. Add Button
                 FilledButton(
                   onPressed: _addTask,
                   style: FilledButton.styleFrom(
@@ -182,9 +191,8 @@ class _TaskListScreenState extends State<TaskListScreen> {
             ),
             const Divider(height: 30),
 
-            // --- Task List View ---
             Expanded(
-              child: _tasks.isEmpty
+              child: sortedTasks.isEmpty
                   ? const Center(
                       child: Text(
                         'No tasks yet! Add one above. 🎉',
@@ -192,9 +200,9 @@ class _TaskListScreenState extends State<TaskListScreen> {
                       ),
                     )
                   : ListView.builder(
-                      itemCount: _tasks.length,
+                      itemCount: sortedTasks.length,
                       itemBuilder: (context, index) {
-                        final task = _tasks[index];
+                        final task = sortedTasks[index];
                         return Card(
                           elevation: 2,
                           margin: const EdgeInsets.symmetric(vertical: 4),
