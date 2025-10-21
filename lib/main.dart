@@ -45,9 +45,9 @@ class TaskListScreen extends StatefulWidget {
 
 class _TaskListScreenState extends State<TaskListScreen> {
   final List<Task> _tasks = [
-    Task(name: "Complete Flutter Assignment", priority: TaskPriority.High),
-    Task(name: "Buy Groceries", isCompleted: true, priority: TaskPriority.Medium),
-    Task(name: "Go for a run", priority: TaskPriority.Low),
+    Task(name: "Complete Assignment", priority: TaskPriority.High),
+    Task(name: "Do meal prep", isCompleted: true, priority: TaskPriority.Medium),
+    Task(name: "workout for 30 mins", priority: TaskPriority.Low),
   ];
 
   final TextEditingController _taskController = TextEditingController();
@@ -77,6 +77,13 @@ class _TaskListScreenState extends State<TaskListScreen> {
   void _deleteTask(Task task) {
     setState(() {
       _tasks.remove(task);
+    });
+  }
+
+  // UPDATED: Method to update task priority
+  void _updateTaskPriority(Task task, TaskPriority newPriority) {
+    setState(() {
+      task.priority = newPriority;
     });
   }
 
@@ -122,7 +129,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
       backgroundColor: Colors.blue.shade50,
       
       appBar: AppBar(
-        title: const Text('Task Manager 📋'),
+        title: const Text('Task Manager'),
         centerTitle: true,
         elevation: 2,
         backgroundColor: Theme.of(context).primaryColor,
@@ -151,12 +158,12 @@ class _TaskListScreenState extends State<TaskListScreen> {
                 Expanded(
                   child: DropdownButtonFormField<TaskPriority>(
                     value: _selectedPriority,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                        labelText: 'Priority',
-                       border: const OutlineInputBorder(
+                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.all(Radius.circular(8)),
                       ),
-                       contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+                       contentPadding: EdgeInsets.symmetric(horizontal: 10),
                     ),
                     icon: const Icon(Icons.arrow_drop_down),
                     elevation: 16,
@@ -195,7 +202,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
               child: sortedTasks.isEmpty
                   ? const Center(
                       child: Text(
-                        'No tasks yet! Add one above. 🎉',
+                        'No tasks are added yet!!',
                         style: TextStyle(fontSize: 18, color: Colors.grey),
                       ),
                     )
@@ -222,12 +229,41 @@ class _TaskListScreenState extends State<TaskListScreen> {
                                 fontSize: 16,
                               ),
                             ),
-                            subtitle: Text(
-                              "Priority: ${task.priority.name}",
-                              style: TextStyle(
-                                color: _getPriorityColor(task.priority),
-                                fontWeight: FontWeight.bold,
-                              ),
+                            // NEW: Priority Display and Dropdown in the subtitle
+                            subtitle: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  "Priority:",
+                                  style: TextStyle(
+                                    color: _getPriorityColor(task.priority),
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: DropdownButton<TaskPriority>(
+                                    isExpanded: true,
+                                    value: task.priority,
+                                    style: TextStyle(
+                                      color: _getPriorityColor(task.priority),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    items: TaskPriority.values
+                                        .map((TaskPriority value) => DropdownMenuItem<TaskPriority>(
+                                              value: value,
+                                              child: Text(value.name),
+                                            ))
+                                        .toList(),
+                                    onChanged: (TaskPriority? newValue) {
+                                      if (newValue != null) {
+                                        _updateTaskPriority(task, newValue);
+                                      }
+                                    },
+                                    underline: Container(), // Remove the default underline
+                                  ),
+                                ),
+                              ],
                             ),
                             trailing: IconButton(
                               icon: const Icon(Icons.delete_outline, color: Colors.red),
