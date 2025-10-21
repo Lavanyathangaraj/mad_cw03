@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 enum TaskPriority { Low, Medium, High }
 
@@ -12,6 +14,27 @@ class Task {
     this.isCompleted = false,
     this.priority = TaskPriority.Medium,
   });
+
+  // Convert Task to Map for storage
+  Map<String, dynamic> toMap() {
+    return {
+      'name': name,
+      'isCompleted': isCompleted,
+      'priority': priority.name,
+    };
+  }
+
+  // Create Task from stored Map
+  factory Task.fromMap(Map<String, dynamic> map) {
+    return Task(
+      name: map['name'],
+      isCompleted: map['isCompleted'],
+      priority: TaskPriority.values.firstWhere(
+        (p) => p.name == map['priority'],
+        orElse: () => TaskPriority.Medium,
+      ),
+    );
+  }
 }
 
 void main() {
@@ -28,9 +51,24 @@ class TaskManagerApp extends StatefulWidget {
 class _TaskManagerAppState extends State<TaskManagerApp> {
   bool _isDarkMode = false;
 
-  void _toggleTheme(bool value) {
+  void _toggleTheme(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('isDarkMode', value);
     setState(() {
       _isDarkMode = value;
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadThemePreference();
+  }
+
+  void _loadThemePreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _isDarkMode = prefs.getBool('isDarkMode') ?? false;
     });
   }
 
@@ -41,13 +79,13 @@ class _TaskManagerAppState extends State<TaskManagerApp> {
       debugShowCheckedModeBanner: false,
       themeMode: _isDarkMode ? ThemeMode.dark : ThemeMode.light,
       theme: ThemeData(
-        primarySwatch: Colors.blue,
         useMaterial3: true,
+        primarySwatch: Colors.blue,
         brightness: Brightness.light,
       ),
       darkTheme: ThemeData(
-        primarySwatch: Colors.blue,
         useMaterial3: true,
+        primarySwatch: Colors.blue,
         brightness: Brightness.dark,
       ),
       home: TaskListScreen(
@@ -73,26 +111,45 @@ class TaskListScreen extends StatefulWidget {
 }
 
 class _TaskListScreenState extends State<TaskListScreen> {
-  final List<Task> _tasks = [
-    Task(name: "Complete Assignment", priority: TaskPriority.High),
-    Task(name: "Do meal prep", isCompleted: true, priority: TaskPriority.Medium),
-    Task(name: "Workout for 30 mins", priority: TaskPriority.Low),
-  ];
-
   final TextEditingController _taskController = TextEditingController();
+  List<Task> _tasks = [];
   TaskPriority _selectedPriority = TaskPriority.Medium;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTasks();
+  }
+
+  // Load saved tasks from SharedPreferences
+  Future<void> _loadTasks() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? tasksJson = prefs.getString('tasks');
+    if (tasksJson != null) {
+      final List<dynamic> decoded = jsonDecode(tasksJson);
+      setState(() {
+        _tasks = decoded.map((taskMap) => Task.fromMap(taskMap)).toList();
+      });
+    }
+  }
+
+  // Save tasks to SharedPreferences
+  Future<void> _saveTasks() async {
+    final prefs = await SharedPreferences.getInstance();
+    final List<Map<String, dynamic>> taskMaps =
+        _tasks.map((task) => task.toMap()).toList();
+    await prefs.setString('tasks', jsonEncode(taskMaps));
+  }
 
   void _addTask() {
     final taskName = _taskController.text.trim();
     if (taskName.isNotEmpty) {
       setState(() {
-        _tasks.add(Task(
-          name: taskName,
-          priority: _selectedPriority,
-        ));
+        _tasks.add(Task(name: taskName, priority: _selectedPriority));
         _taskController.clear();
         _selectedPriority = TaskPriority.Medium;
       });
+      _saveTasks();
     }
   }
 
@@ -100,18 +157,21 @@ class _TaskListScreenState extends State<TaskListScreen> {
     setState(() {
       task.isCompleted = !task.isCompleted;
     });
+    _saveTasks();
   }
 
   void _deleteTask(Task task) {
     setState(() {
       _tasks.remove(task);
     });
+    _saveTasks();
   }
 
   void _updateTaskPriority(Task task, TaskPriority newPriority) {
     setState(() {
       task.priority = newPriority;
     });
+    _saveTasks();
   }
 
   int _getPriorityValue(TaskPriority priority) {
@@ -145,10 +205,8 @@ class _TaskListScreenState extends State<TaskListScreen> {
   @override
   Widget build(BuildContext context) {
     final List<Task> sortedTasks = List.from(_tasks);
-    sortedTasks.sort((a, b) {
-      return _getPriorityValue(a.priority)
-          .compareTo(_getPriorityValue(b.priority));
-    });
+    sortedTasks.sort(
+        (a, b) => _getPriorityValue(a.priority).compareTo(_getPriorityValue(b.priority)));
 
     return Scaffold(
       appBar: AppBar(
@@ -174,8 +232,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.all(Radius.circular(8)),
                 ),
-                contentPadding:
-                    EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+                contentPadding: EdgeInsets.symmetric(vertical: 10, horizontal: 10),
               ),
               onSubmitted: (_) => _addTask(),
             ),
@@ -194,8 +251,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
                     ),
                     icon: const Icon(Icons.arrow_drop_down),
                     elevation: 16,
-                    style: TextStyle(
-                        color: Theme.of(context).primaryColor, fontSize: 16),
+                    style: TextStyle(color: Theme.of(context).primaryColor, fontSize: 16),
                     onChanged: (TaskPriority? newValue) {
                       if (newValue != null) {
                         setState(() {
@@ -204,8 +260,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
                       }
                     },
                     items: TaskPriority.values
-                        .map<DropdownMenuItem<TaskPriority>>(
-                            (TaskPriority value) {
+                        .map<DropdownMenuItem<TaskPriority>>((TaskPriority value) {
                       return DropdownMenuItem<TaskPriority>(
                         value: value,
                         child: Text(value.name),
@@ -217,8 +272,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
                 FilledButton(
                   onPressed: _addTask,
                   style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 18),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
                       minimumSize: const Size(60, 50)),
                   child: const Text('Add', style: TextStyle(fontSize: 16)),
                 ),
@@ -243,8 +297,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
                           child: ListTile(
                             leading: Checkbox(
                               value: task.isCompleted,
-                              onChanged: (bool? newValue) =>
-                                  _toggleTaskCompletion(task),
+                              onChanged: (bool? newValue) => _toggleTaskCompletion(task),
                               activeColor: Colors.green,
                             ),
                             title: Text(
@@ -255,10 +308,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
                                     : TextDecoration.none,
                                 color: task.isCompleted
                                     ? Colors.grey
-                                    : Theme.of(context)
-                                        .textTheme
-                                        .bodyLarge
-                                        ?.color,
+                                    : Theme.of(context).textTheme.bodyLarge?.color,
                                 fontSize: 16,
                               ),
                             ),
@@ -299,8 +349,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
                               ],
                             ),
                             trailing: IconButton(
-                              icon: const Icon(Icons.delete_outline,
-                                  color: Colors.red),
+                              icon: const Icon(Icons.delete_outline, color: Colors.red),
                               onPressed: () => _deleteTask(task),
                               tooltip: 'Delete Task',
                             ),
